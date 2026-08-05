@@ -1,65 +1,434 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Patient Monitor - Live Data</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f7f6; text-align: center; padding: 20px; }
-    .card { background: white; padding: 20px; border-radius: 12px; margin: 15px auto; max-width: 350px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    h2 { color: #333; }
-    .val { font-size: 2em; font-weight: bold; color: #007bff; }
-    .alert-box { background: #ff4d4d; color: white; padding: 15px; border-radius: 8px; font-weight: bold; display: none; }
-  </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vitalis — Patient Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:      #0F2537;
+    --slate-bg: #EBF1F2;
+    --card:     #FFFFFF;
+    --teal:     #157C77;
+    --teal-dim: #DCEEEC;
+    --amber:    #C97A1F;
+    --amber-dim:#FBEBD6;
+    --crimson:  #C82A44;
+    --crimson-dim:#FBE0E4;
+    --line:     #DCE4E6;
+    --muted:    #6C8288;
+    --radius:   18px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 500px at 15% -10%, #F4F9F9 0%, transparent 60%),
+      var(--slate-bg);
+    font-family:'Inter', sans-serif;
+    color: var(--ink);
+    padding: 0 20px 60px;
+  }
+
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+    outline: 3px solid var(--teal);
+    outline-offset: 3px;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    max-width: 980px;
+    margin: 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 28px 4px 22px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .brand-mark{
+    width:44px; height:44px;
+    border-radius:12px;
+    background: var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .brand-mark svg{ width:24px; height:24px; }
+  .brand-text .eyebrow{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+    margin:0 0 2px;
+  }
+  .brand-text h1{
+    font-size: 21px;
+    margin:0;
+    font-weight:800;
+    letter-spacing:-0.01em;
+  }
+
+  .status-pill{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: var(--card);
+    border:1px solid var(--line);
+    padding: 9px 16px 9px 12px;
+    border-radius: 999px;
+    font-size:13px;
+    font-weight:600;
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(15,37,55,.04);
+  }
+  .pulse-dot{
+    position:relative;
+    width:10px; height:10px;
+    border-radius:50%;
+    background: var(--teal);
+    flex-shrink:0;
+  }
+  .pulse-dot::after{
+    content:'';
+    position:absolute; inset:-6px;
+    border-radius:50%;
+    border:2px solid var(--teal);
+    animation: ring 1.8s ease-out infinite;
+  }
+  .status-pill.offline .pulse-dot,
+  .status-pill.offline .pulse-dot::after{ background: var(--muted); border-color: var(--muted); }
+  .status-pill.offline .pulse-dot::after{ animation:none; }
+
+  @keyframes ring{
+    0%{ transform:scale(.4); opacity:.9; }
+    100%{ transform:scale(1.6); opacity:0; }
+  }
+
+  /* ---------- Emergency banner ---------- */
+  .emergency{
+    max-width: 980px;
+    margin: 0 auto 22px;
+    background: linear-gradient(135deg, var(--crimson), #A0203A);
+    color:#fff;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    box-shadow: 0 10px 30px rgba(200,42,68,.35);
+    max-height:0;
+    opacity:0;
+    overflow:hidden;
+    transform: translateY(-8px);
+    transition: max-height .35s ease, opacity .35s ease, transform .35s ease, padding .35s ease, margin .35s ease;
+  }
+  .emergency.show{
+    max-height: 200px;
+    opacity:1;
+    transform: translateY(0);
+  }
+  .emergency-icon{
+    width:46px; height:46px;
+    flex-shrink:0;
+    border-radius:12px;
+    background: rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center;
+    animation: siren 1s ease-in-out infinite;
+  }
+  @keyframes siren{
+    0%,100%{ transform: rotate(-8deg); }
+    50%{ transform: rotate(8deg); }
+  }
+  .emergency-text .eyebrow{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    opacity:.85; font-weight:700; margin:0 0 3px;
+  }
+  .emergency-text h2{ margin:0; font-size:19px; font-weight:800; }
+
+  /* ---------- Grid ---------- */
+  .grid{
+    max-width: 980px;
+    margin: 0 auto;
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 800px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    background: var(--card);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 24px 22px;
+    box-shadow: 0 1px 3px rgba(15,37,55,.05);
+    display:flex;
+    flex-direction:column;
+    gap: 16px;
+    transition: box-shadow .2s ease, transform .2s ease;
+  }
+  .card:hover{ box-shadow: 0 10px 24px rgba(15,37,55,.08); transform: translateY(-2px); }
+
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .card-icon{
+    width:38px; height:38px;
+    border-radius:10px;
+    background: var(--teal-dim);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--teal);
+    flex-shrink:0;
+  }
+  .card-icon svg{ width:20px; height:20px; }
+  .card-label{
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color: var(--muted);
+    font-weight:700;
+  }
+
+  .card-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size: 42px;
+    line-height:1;
+    letter-spacing:-0.02em;
+    color: var(--ink);
+    display:flex; align-items:baseline; gap:6px;
+  }
+  .card-value .unit{
+    font-size: 16px;
+    color: var(--muted);
+    font-weight:500;
+  }
+
+  .badge{
+    align-self:flex-start;
+    font-size:12px;
+    font-weight:700;
+    padding: 5px 11px;
+    border-radius:999px;
+    background: var(--teal-dim);
+    color: var(--teal);
+  }
+  .badge.warn{ background: var(--amber-dim); color: var(--amber); }
+  .badge.crit{ background: var(--crimson-dim); color: var(--crimson); }
+  .badge.neutral{ background:#EEF2F2; color:var(--muted); }
+
+  .card-foot{
+    font-size:12px;
+    color: var(--muted);
+    border-top:1px dashed var(--line);
+    padding-top: 12px;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  /* ---------- Footer ---------- */
+  .footer{
+    max-width:980px;
+    margin: 30px auto 0;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    font-size:12px;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .pulse-dot::after, .emergency-icon{ animation:none; }
+    .card{ transition:none; }
+  }
+</style>
 </head>
 <body>
 
-  <h1>Patient Monitoring System</h1>
-
-  <div id="fallAlert" class="alert-box">🚨 EMERGENCY: FALL DETECTED! 🚨</div>
-
-  <div class="card">
-    <h3>Body Temperature</h3>
-    <div id="temp" class="val">-- °F</div>
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#EBF1F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h4l2 8 4-16 2 8h6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <p class="eyebrow">Remote care · Room 04</p>
+        <h1>Patient Monitor</h1>
+      </div>
+    </div>
+    <div class="status-pill offline" id="statusPill">
+      <span class="pulse-dot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Pitch Angle (Tilt)</h3>
-    <div id="pitch" class="val">-- °</div>
+  <div class="emergency" id="fallAlert">
+    <div class="emergency-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z"/>
+      </svg>
+    </div>
+    <div class="emergency-text">
+      <p class="eyebrow">Emergency alert</p>
+      <h2>Fall detected — check on patient immediately</h2>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Posture Status</h3>
-    <div id="posture" class="val">--</div>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-label">Body temperature</span>
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card-value"><span id="temp">--</span><span class="unit">°F</span></div>
+      <span class="badge neutral" id="tempBadge">Awaiting data</span>
+      <div class="card-foot">
+        <span>Normal range 97–99.5°F</span>
+        <span id="tempTime">--:--</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-label">Pitch angle (tilt)</span>
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card-value"><span id="pitch">--</span><span class="unit">°</span></div>
+      <span class="badge neutral" id="pitchBadge">Awaiting data</span>
+      <div class="card-foot">
+        <span>Stable below 45°</span>
+        <span id="pitchTime">--:--</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-label">Posture status</span>
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M9 10l-3 2M15 10l3 2"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card-value" style="font-size:28px;"><span id="posture">--</span></div>
+      <span class="badge neutral" id="postureBadge">Awaiting data</span>
+      <div class="card-foot">
+        <span>Sensor: ESP8266</span>
+        <span id="postureTime">--:--</span>
+      </div>
+    </div>
+
   </div>
 
+  <div class="footer">
+    <span>Vitalis Monitor · streaming live from Firebase Realtime Database</span>
+    <span id="lastSync">No data received yet</span>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
   <script>
     // Paste your Firebase Config here (Found in Firebase Project Settings)
     const firebaseConfig = {
       databaseURL: "https://patient-web-dashboard-85fa1-default-rtdb.firebaseio.com/"
     };
     firebase.initializeApp(firebaseConfig);
-
     const db = firebase.database();
 
-    // Listen for real-time updates from ESP8266
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const fallAlert  = document.getElementById('fallAlert');
+    const lastSync   = document.getElementById('lastSync');
+
+    function timeNow(){
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+    }
+
+    function setBadge(el, label, level){
+      el.textContent = label;
+      el.className = 'badge' + (level ? ' ' + level : '');
+    }
+
     db.ref("patient_data").on("value", (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        document.getElementById("temp").innerText = data.temp + " °F";
-        document.getElementById("pitch").innerText = data.pitch + " °";
-        document.getElementById("posture").innerText = data.posture;
+      if (!data) return;
 
-        const alertBox = document.getElementById("fallAlert");
-        if (data.fall === "FALL DETECTED!") {
-          alertBox.style.display = "block";
-        } else {
-          alertBox.style.display = "none";
-        }
+      statusPill.classList.remove('offline');
+      statusText.textContent = 'Live';
+
+      const stamp = timeNow();
+
+      // Temperature
+      const temp = parseFloat(data.temp);
+      document.getElementById('temp').textContent = isNaN(temp) ? '--' : temp.toFixed(1);
+      document.getElementById('tempTime').textContent = stamp;
+      if (!isNaN(temp)){
+        if (temp >= 100.4) setBadge(document.getElementById('tempBadge'), 'Fever range', 'crit');
+        else if (temp > 99.5) setBadge(document.getElementById('tempBadge'), 'Slightly elevated', 'warn');
+        else setBadge(document.getElementById('tempBadge'), 'Normal', '');
       }
+
+      // Pitch
+      const pitch = parseFloat(data.pitch);
+      document.getElementById('pitch').textContent = isNaN(pitch) ? '--' : pitch.toFixed(0);
+      document.getElementById('pitchTime').textContent = stamp;
+      if (!isNaN(pitch)){
+        const abs = Math.abs(pitch);
+        if (abs >= 60) setBadge(document.getElementById('pitchBadge'), 'Sharp tilt', 'crit');
+        else if (abs >= 45) setBadge(document.getElementById('pitchBadge'), 'Leaning', 'warn');
+        else setBadge(document.getElementById('pitchBadge'), 'Stable', '');
+      }
+
+      // Posture
+      const posture = (data.posture || '').toString();
+      document.getElementById('posture').textContent = posture || '--';
+      document.getElementById('postureTime').textContent = stamp;
+      const p = posture.toLowerCase();
+      if (p.includes('fall') || p.includes('lying') || p.includes('down')){
+        setBadge(document.getElementById('postureBadge'), 'Needs attention', 'crit');
+      } else if (p.includes('sit')){
+        setBadge(document.getElementById('postureBadge'), 'Seated', 'warn');
+      } else if (p){
+        setBadge(document.getElementById('postureBadge'), 'Upright', '');
+      }
+
+      // Fall alert banner
+      if (data.fall === "FALL DETECTED!") {
+        fallAlert.classList.add('show');
+      } else {
+        fallAlert.classList.remove('show');
+      }
+
+      lastSync.textContent = 'Last update ' + stamp;
+    }, () => {
+      statusPill.classList.add('offline');
+      statusText.textContent = 'Connection lost';
     });
   </script>
 </body>
