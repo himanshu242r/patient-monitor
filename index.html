@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Monitor - Live Data</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f7f6; text-align: center; padding: 20px; }
+    .card { background: white; padding: 20px; border-radius: 12px; margin: 15px auto; max-width: 350px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    h2 { color: #333; }
+    .val { font-size: 2em; font-weight: bold; color: #007bff; }
+    .alert-box { background: #ff4d4d; color: white; padding: 15px; border-radius: 8px; font-weight: bold; display: none; }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+
+  <h1>Patient Monitoring System</h1>
+
+  <div id="fallAlert" class="alert-box">🚨 EMERGENCY: FALL DETECTED! 🚨</div>
+
+  <div class="card">
+    <h3>Body Temperature</h3>
+    <div id="temp" class="val">-- °F</div>
+  </div>
+
+  <div class="card">
+    <h3>Pitch Angle (Tilt)</h3>
+    <div id="pitch" class="val">-- °</div>
+  </div>
+
+  <div class="card">
+    <h3>Posture Status</h3>
+    <div id="posture" class="val">--</div>
+  </div>
+
+  <script>
+    // Paste your Firebase Config here (Found in Firebase Project Settings)
+    const firebaseConfig = {
+      databaseURL: "YOUR_FIREBASE_DATABASE_URL"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.database();
+
+    // Listen for real-time updates from ESP8266
+    db.ref("patient_data").on("value", (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        document.getElementById("temp").innerText = data.temp + " °F";
+        document.getElementById("pitch").innerText = data.pitch + " °";
+        document.getElementById("posture").innerText = data.posture;
+
+        const alertBox = document.getElementById("fallAlert");
+        if (data.fall === "FALL DETECTED!") {
+          alertBox.style.display = "block";
+        } else {
+          alertBox.style.display = "none";
+        }
+      }
+    });
+  </script>
+</body>
+</html>
